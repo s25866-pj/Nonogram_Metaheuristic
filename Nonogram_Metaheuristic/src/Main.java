@@ -9,6 +9,12 @@ public class Main {
     static List<List<Integer>> colHints = new ArrayList<>();
     static Random random = new Random();
 
+    static final int POPULATION_SIZE = 100;
+    static final int ELITE_SIZE = 2;
+    static final int NUM_GENERATIONS = 1000;
+    static final double MUTATION_RATE = 0.01;
+    static final double CROSSOVER_RATE = 0.7;
+
     public static void main(String[] args) {
         File inputfile = new File("src/nonogram.txt");
         if (inputfile.exists()) {
@@ -22,7 +28,7 @@ public class Main {
                 System.out.println("No solution found.");
             }
 
-            finalResult = generateEmptyMap(); // Reset the board
+            finalResult = generateEmptyMap();
 
             System.out.println("Using Hill Climbing:");
             if (solveNonogramHillClimbing(finalResult)) {
@@ -31,10 +37,19 @@ public class Main {
                 System.out.println("No solution found.");
             }
 
-            finalResult = generateEmptyMap(); // Reset the board
+            finalResult = generateEmptyMap();
 
             System.out.println("Using Tabu Search:");
             if (solveNonogramTabuSearch(finalResult)) {
+                showResult(finalResult);
+            } else {
+                System.out.println("No solution found.");
+            }
+
+            finalResult = generateEmptyMap();
+
+            System.out.println("Using Genetic Algorithm:");
+            if (geneticAlgorithm(finalResult)) {
                 showResult(finalResult);
             } else {
                 System.out.println("No solution found.");
@@ -235,7 +250,7 @@ public class Main {
             }
 
             if (bestNeighbor == null) {
-                continue; // If all neighbors are in tabu list, skip to the next iteration
+                continue;
             }
 
             board = bestNeighbor;
@@ -280,5 +295,133 @@ public class Main {
             }
         }
         return false;
+    }
+
+    // Genetic Algorithm components
+
+    private static boolean geneticAlgorithm(int[][] finalResult) {
+        List<int[][]> population = initializePopulation();
+        for (int generation = 0; generation < NUM_GENERATIONS; generation++) {
+            List<int[][]> newPopulation = new ArrayList<>();
+
+            // Elitism: carry over the best solutions directly to the next generation
+            List<int[][]> elites = getElites(population);
+            newPopulation.addAll(elites);
+
+            // Generate the rest of the new population
+            while (newPopulation.size() < POPULATION_SIZE) {
+                int[][] parent1 = selectParent(population);
+                int[][] parent2 = selectParent(population);
+
+                int[][] offspring1, offspring2;
+                if (random.nextDouble() < CROSSOVER_RATE) {
+                    int[][][] offspring = crossover(parent1, parent2);
+                    offspring1 = offspring[0];
+                    offspring2 = offspring[1];
+                } else {
+                    offspring1 = copyBoard(parent1);
+                    offspring2 = copyBoard(parent2);
+                }
+
+                mutate(offspring1);
+                mutate(offspring2);
+
+                newPopulation.add(offspring1);
+                newPopulation.add(offspring2);
+            }
+
+            population = newPopulation;
+
+            int[][] bestSolution = getBestSolution(population);
+            if (calculateScore(bestSolution) == rowNumber + columnsNumber) {
+                copyBoardToResult(bestSolution, finalResult);
+                return true;
+            }
+        }
+
+        int[][] bestSolution = getBestSolution(population);
+        copyBoardToResult(bestSolution, finalResult);
+        return calculateScore(bestSolution) == rowNumber + columnsNumber;
+    }
+
+    private static List<int[][]> initializePopulation() {
+        List<int[][]> population = new ArrayList<>();
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            int[][] individual = new int[rowNumber][columnsNumber];
+            initializeRandomBoard(individual);
+            population.add(individual);
+        }
+        return population;
+    }
+
+    private static List<int[][]> getElites(List<int[][]> population) {
+        List<int[][]> sortedPopulation = new ArrayList<>(population);
+        sortedPopulation.sort((a, b) -> Integer.compare(calculateScore(b), calculateScore(a)));
+        return new ArrayList<>(sortedPopulation.subList(0, ELITE_SIZE));
+    }
+
+    private static int[][] selectParent(List<int[][]> population) {
+        int tournamentSize = 5;
+        List<int[][]> tournament = new ArrayList<>();
+        for (int i = 0; i < tournamentSize; i++) {
+            tournament.add(population.get(random.nextInt(POPULATION_SIZE)));
+        }
+        tournament.sort((a, b) -> Integer.compare(calculateScore(b), calculateScore(a)));
+        return tournament.get(0);
+    }
+
+    private static int[][][] crossover(int[][] parent1, int[][] parent2) {
+        int[][] offspring1 = new int[rowNumber][columnsNumber];
+        int[][] offspring2 = new int[rowNumber][columnsNumber];
+
+        int crossoverPoint1 = random.nextInt(rowNumber * columnsNumber);
+        int crossoverPoint2 = random.nextInt(rowNumber * columnsNumber);
+        if (crossoverPoint1 > crossoverPoint2) {
+            int temp = crossoverPoint1;
+            crossoverPoint1 = crossoverPoint2;
+            crossoverPoint2 = temp;
+        }
+
+        for (int i = 0; i < rowNumber; i++) {
+            for (int j = 0; j < columnsNumber; j++) {
+                int index = i * columnsNumber + j;
+                if (index < crossoverPoint1 || index > crossoverPoint2) {
+                    offspring1[i][j] = parent1[i][j];
+                    offspring2[i][j] = parent2[i][j];
+                } else {
+                    offspring1[i][j] = parent2[i][j];
+                    offspring2[i][j] = parent1[i][j];
+                }
+            }
+        }
+
+        return new int[][][]{offspring1, offspring2};
+    }
+
+    private static void mutate(int[][] individual) {
+        for (int i = 0; i < rowNumber; i++) {
+            for (int j = 0; j < columnsNumber; j++) {
+                if (random.nextDouble() < MUTATION_RATE) {
+                    individual[i][j] = 1 - individual[i][j];
+                }
+            }
+        }
+
+        if (random.nextDouble() < MUTATION_RATE) {
+            int row = random.nextInt(rowNumber);
+            for (int j = 0; j < columnsNumber; j++) {
+                individual[row][j] = 1 - individual[row][j];
+            }
+        }
+    }
+
+    private static int[][] getBestSolution(List<int[][]> population) {
+        return population.stream().max(Comparator.comparingInt(Main::calculateScore)).orElse(null);
+    }
+
+    private static void copyBoardToResult(int[][] bestSolution, int[][] finalResult) {
+        for (int i = 0; i < rowNumber; i++) {
+            System.arraycopy(bestSolution[i], 0, finalResult[i], 0, columnsNumber);
+        }
     }
 }
