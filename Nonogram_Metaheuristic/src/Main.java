@@ -1,5 +1,4 @@
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.util.*;
 
 public class Main {
@@ -21,10 +20,10 @@ public class Main {
             return;
         }else if(args[0].equals("h")){
             System.out.println("rozwiązanie, plik np <1 nonogram.txt>\n" +
-                    "0-fullsearch\n 1-HillClimbing \n 2-TabuSearch\n3-GeneticAlgoritm\n 4-allAlgoroitms \n5-raport (you need add more files) ");
+                    "0-fullsearch\n 1-HillClimbing \n 2-TabuSearch\n3-GeneticAlgoritm\n 4-allAlgoroitms \n5-raport <1 nonogram.txt howManyTimeTest> ");
         }
         else{
-            if(!args[0].equals("5")){
+
                 File inputfile = new File(args[1]);
                 int[][] finalResult;
                 if (inputfile.exists()) {
@@ -60,78 +59,77 @@ public class Main {
                         finalResult = generateEmptyMap();
                         GeneticAlgorithm(inputfile,finalResult);
                         break;
+                    case "5":
+                        try {
+                            BufferedWriter writer = new BufferedWriter(new FileWriter("testResult.txt"));
+                            int testNumber =Integer.parseInt(args[2]);
+                            writer.write("Brutforce: ");
+                            for (int i = 0; i < testNumber; i++) {
+                                finalResult = generateEmptyMap();
+                                long startTime=System.nanoTime();
+                                nonogramAlgoritmNoS(inputfile,finalResult);
+                                long endTime = System.nanoTime();
+                                long duration = endTime-startTime;
+                                writer.write(duration/100+" ");
+                            }
+                            writer.write("\n HillClimbing: ");
+                            for (int i = 0; i < testNumber; i++) {
+                                finalResult = generateEmptyMap();
+                                long startTime=System.nanoTime();
+                                HillClimbingNoS(inputfile,finalResult);
+                                long endTime = System.nanoTime();
+                                long duration = endTime-startTime;
+                                writer.write(duration/100+" ");
+                            }
+                            writer.write("\n TabuSearch: ");
+                            for (int i = 0; i < testNumber; i++) {
+                                finalResult = generateEmptyMap();
+                                long startTime=System.nanoTime();
+                                TabuSearchNoS(inputfile,finalResult);
+                                long endTime = System.nanoTime();
+                                long duration = endTime-startTime;
+                                writer.write(duration/100+" ");
+                            }
+                            writer.write("\n GeneticAlgoritm: ");
+                            for (int i = 0; i < testNumber; i++) {
+                                finalResult = generateEmptyMap();
+                                long startTime=System.nanoTime();
+                                GeneticAlgorithmNoS(inputfile,finalResult);
+                                long endTime = System.nanoTime();
+                                long duration = endTime-startTime;
+                                writer.write(duration/100+" ");
+                            }
+                            writer.close();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+//                        generateRaport(args[2]);
+                        break;
+
+                }
+
+        }
+    }
+
+    private static void generateRaport(String arg) {
+        ArrayList<String> algorithms = new ArrayList<>();
+        ArrayList<Integer> times = new ArrayList<>();
+        try {
+            BufferedReader br = new BufferedReader(new FileReader("testResult.txt"));
+            String line;
+            while((line=br.readLine())!=null){
+                String[] patrs = line.split(" ");
+                algorithms.add(patrs[0]);
+                for (int i = 1; i <Integer.parseInt(arg) ; i++) {
+                    times.add(Integer.parseInt(patrs[i]));
                 }
             }
-            if(args[0].equals("5")){
-                generateReport(args);
-            }
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
-
-    private static void generateReport(String[] args) {
-        int files = args.length - 1;
-        int[][] finalResult = new int[0][];
-
-        List<String> algorithms = Arrays.asList("Full Search", "Hill Climbing", "Tabu Search", "Genetic Algorithm");
-        Map<String, List<Long>> results = new HashMap<>();
-        for (String algorithm : algorithms) {
-            results.put(algorithm, new ArrayList<>());
-        }
-
-        for (int i = 0; i < files; i++) {
-            File inputfile = new File("src/" + args[i + 1]);
-            if (!inputfile.exists()) {
-                System.out.println("File " + args[i + 1] + " not found.");
-                continue;
-            }
-
-            readFromFile(inputfile);
-
-            for (String algorithm : algorithms) {
-                long startTime = System.currentTimeMillis();
-                switch (algorithm) {
-                    case "Full Search":
-                        solveNonogram(finalResult, 0, 0);
-                        break;
-                    case "Hill Climbing":
-                        solveNonogramHillClimbing(finalResult);
-                        break;
-                    case "Tabu Search":
-                        solveNonogramTabuSearch(finalResult);
-                        break;
-                    case "Genetic Algorithm":
-                        geneticAlgorithm(finalResult);
-                        break;
-                }
-                long endTime = System.currentTimeMillis();
-                results.get(algorithm).add(endTime - startTime);
-            }
-        }
-
-        System.out.println("Algorithm Performance Report:");
-        for (String algorithm : algorithms) {
-            List<Long> times = results.get(algorithm);
-            long total = 0;
-            for (Long time : times) {
-                total += time;
-            }
-            double average = total / (double) times.size();
-            System.out.println(algorithm + ": Average time = " + average + " ms");
-        }
-
-        // Plotting the results
-        plotResults(results);
-    }
-
-    private static void plotResults(Map<String, List<Long>> results) {
-        // This method can use a plotting library like JFreeChart to plot the results
-        // Here, we'll just print the values for simplicity
-        System.out.println("Plotting results (simulated):");
-        for (String algorithm : results.keySet()) {
-            System.out.println(algorithm + ": " + results.get(algorithm));
-        }
-    }
-
     private static void GeneticAlgorithm(File inputfile, int[][] finalResult) {
         System.out.println("Using Genetic Algorithm:");
         if (geneticAlgorithm(finalResult)) {
@@ -140,7 +138,6 @@ public class Main {
             System.out.println("No solution found.");
         }
     }
-
     private static void TabuSearch(File inputfile, int[][] finalResult) {
         System.out.println("Using Tabu Search:");
         if (solveNonogramTabuSearch(finalResult)) {
@@ -149,7 +146,6 @@ public class Main {
             System.out.println("No solution found.");
         }
     }
-
     private static void HillClimbing(File inputfile, int[][] finalResult) {
         System.out.println("Using Hill Climbing:");
         if (rowNumber == 0 || columnsNumber == 0) {
@@ -162,7 +158,6 @@ public class Main {
             System.out.println("No solution found.");
         }
     }
-
     private static void nonogramAlgoritm(File inputfile, int[][] finalResult) {
         System.out.println("Using Full Search:");
         if (solveNonogram(finalResult, 0, 0)) {
@@ -170,6 +165,22 @@ public class Main {
         } else {
             System.out.println("No solution found.");
         }
+    }
+
+    private static void GeneticAlgorithmNoS(File inputfile, int[][] finalResult) {
+        geneticAlgorithm(finalResult);
+    }
+    private static void TabuSearchNoS(File inputfile, int[][] finalResult) {
+        solveNonogramTabuSearch(finalResult);
+    }
+    private static void HillClimbingNoS(File inputfile, int[][] finalResult) {
+        if (rowNumber == 0 || columnsNumber == 0) {
+            return;
+        }
+       solveNonogramHillClimbing(finalResult);
+    }
+    private static void nonogramAlgoritmNoS(File inputfile, int[][] finalResult) {
+        solveNonogram(finalResult, 0, 0);
     }
 
     private static void showResult(int[][] finalResult) {
@@ -273,18 +284,17 @@ public class Main {
         }
         return groups.equals(hints);
     }
-
+///////////////////////////////////////////////////////////////////////////////////////
     private static boolean solveNonogramHillClimbing(int[][] board) {
         initializeRandomBoard(board);
         int currentScore = calculateScore(board);
-        int steps = 100000;  // Increased maximum number of steps to perform
+        int steps = 100000;
 
         for (int step = 0; step < steps; step++) {
             int[][] neighbor = generateNeighbor(board);
             int neighborScore = calculateScore(neighbor);
 
             if (neighborScore > currentScore) {
-                // Update the board with the better neighbor
                 for (int i = 0; i < rowNumber; i++) {
                     System.arraycopy(neighbor[i], 0, board[i], 0, columnsNumber);
                 }
@@ -357,14 +367,14 @@ public class Main {
 
         return neighbor;
     }
-
+//////////////////////////////////////////////////////////////////////
     private static boolean solveNonogramTabuSearch(int[][] board) {
         initializeRandomBoard(board);
         int currentScore = calculateScore(board);
         List<int[][]> tabuList = new ArrayList<>();
-        int tabuTenure = 100;  // Increased size of the tabu list
+        int tabuTenure = 100;
 
-        int steps = 100000;  // Increased maximum number of steps to perform
+        int steps = 100000;
         for (int step = 0; step < steps; step++) {
             int[][] bestNeighbor = null;
             int bestNeighborScore = Integer.MAX_VALUE;
@@ -412,7 +422,7 @@ public class Main {
         neighbor[row][col] = 1 - neighbor[row][col];
         return neighbor;
     }
-
+///////////////////////////////////////////////////////////////////////////////////
     private static boolean geneticAlgorithm(int[][] board) {
         List<int[][]> population = initializePopulation();
         int[] fitnessScores = new int[POPULATION_SIZE];
